@@ -1,0 +1,38 @@
+unit dbModule;
+
+interface
+
+uses
+  System.SysUtils, System.Classes, Data.DB, Data.Win.ADODB;
+
+type
+  TDataModule1 = class(TDataModule)
+    empCon: TADOConnection;
+    empDs: TADODataSet;
+    procedure DataModuleCreate(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  DataModule1: TDataModule1;
+
+implementation
+
+{%CLASSGROUP 'Vcl.Controls.TControl'}
+
+{$R *.dfm}
+
+
+
+procedure TDataModule1.DataModuleCreate(Sender: TObject);
+begin
+
+  empCon := TADOConnection.Create(DataModule1);
+  empDs := TADODataSet.Create(DataModule1);
+
+end;
+
+end.

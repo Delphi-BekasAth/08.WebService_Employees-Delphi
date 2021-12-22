@@ -1,0 +1,245 @@
+unit WebModuleUnit1;
+
+interface
+
+uses
+  System.SysUtils, System.Classes, Web.HTTPApp, Data.DB, Data.Win.ADODB, dbModule, System.Types, clsEmployee,
+  System.Generics.Collections, System.JSON, Rest.Json,Vcl.Dialogs;
+
+type
+  TWebModule1 = class(TWebModule)
+    procedure WebModule1DefaultHandlerAction(Sender: TObject;
+      Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+    procedure WebModule1EmployeesActionAction(Sender: TObject;
+      Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+    procedure WebModule1anEmployeeAction(Sender: TObject; Request: TWebRequest;
+      Response: TWebResponse; var Handled: Boolean);
+    procedure WebModule1CreateEmployeeAction(Sender: TObject;
+      Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+
+  private
+    { Private declarations }
+
+    function GetParameters(actionPath, fullPath: string): String;
+  public
+    { Public declarations }
+  end;
+
+var
+  WebModuleClass: TComponentClass = TWebModule1;
+
+implementation
+
+{%CLASSGROUP 'Vcl.Controls.TControl'}
+
+{$R *.dfm}
+
+
+
+procedure TWebModule1.WebModule1DefaultHandlerAction(Sender: TObject;
+  Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+begin
+  Response.Content :=
+    '<html>' +
+    '<head><title>Web Server Application</title></head>' +
+    '<body>Web Server Application</body>' +
+    '</html>';
+end;
+
+// All Employees
+procedure TWebModule1.WebModule1EmployeesActionAction(Sender: TObject;
+  Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+var
+  id, age: Integer;
+  name: string;
+  salary: Double;
+
+  employees: TList<TEmployee>;
+  emp: TEmployee;
+
+  jsob: TJSONObject;
+  jsar: TJSONArray;
+  json: TJSONObject;
+
+begin
+
+  employees := TList<TEmployee>.Create;
+
+  with DataModule1 do
+  begin
+
+    with empDs do
+    begin
+
+      empDs.Close;
+      CommandText := 'select * from EMPLOYEE';
+      empDs.Open;
+
+      emp := TEmployee.Create();
+
+      First;
+
+      while not eof do
+      begin
+        emp := TEmployee.Create();
+
+        id := empDs['ID'];
+        //name := empDs['NAME'];
+        salary := empDs['SALARY'];
+        age := empDs['AGE'];
+
+        emp.SetId(id);
+        emp.SetName(empDs['NAME']);
+        emp.SetSalary(salary);
+        emp.SetAge(age);
+
+        employees.Add(emp);
+        Next;
+      end;
+
+    end;
+
+    json := TJsonObject.Create;
+    jsar := TJSONArray.Create;
+
+    try
+
+      for emp in employees do
+      begin
+
+      jsob := TJSONObject.Create;
+      jsob.AddPair('id', emp.GetId.ToString);
+      jsob.AddPair('name', emp.GetName);
+      jsob.AddPair('salary', emp.GetSalary.ToString);
+      jsob.AddPair('age', emp.GetAge.ToString);
+
+      jsar.AddElement(jsob);
+      end;
+
+      json.AddPair('status', 'success');
+      json.AddPair('data',jsar);
+      json.AddPair('message','Success! All employees have been fetched');
+
+    except
+
+      json.AddPair('status', 'error');
+      json.AddPair('message','something went wrong');
+
+    end;
+
+    Response.ContentType := 'application/json';
+    Response.Content := json.ToString;
+
+  end;
+end;
+
+// An Employee
+procedure TWebModule1.WebModule1anEmployeeAction(Sender: TObject;
+  Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+var
+  empId: string;
+  emp: TEmployee;
+  id, age: Integer;
+  name: Variant;
+  salary: Double;
+
+  json: TJSONObject;
+  jsdata: TJSONObject;
+
+begin
+
+  empId := GetParameters((Sender as TWebActionItem).PathInfo, Request.PathInfo);
+
+  with DataModule1 do
+  begin
+
+    with empQr do
+    begin
+
+      SQL.Clear;
+      SQL.Add('select * from EMPLOYEE where ID = :id');
+      Parameters.ParamByName('id').Value := empId;
+      Open;
+
+      if not empQr.FieldByName('ID').IsNull then
+      begin
+
+        id := empQr['ID'];
+        //name := empQr['NAME'].AsString;
+        salary := empQr['SALARY'];
+        age := empQr['AGE'];
+
+        emp := TEmployee.Create(id, empQr['NAME'], salary, age);
+
+        json := TJSONObject.Create;
+        json.AddPair('status', 'success');
+
+        jsData := TJSONObject.Create;
+        jsData.AddPair('id', emp.GetId.ToString);
+        jsData.AddPair('name', emp.GetName);
+        jsData.AddPair('salary', emp.GetSalary.ToString);
+        jsData.AddPair('age', emp.GetAge.ToString);
+
+        json.AddPair('data', jsData);
+        json.AddPair('message', 'Success! Employee has been found');
+
+      end
+      else
+      begin
+
+         json := TJSONObject.Create;
+         json.AddPair('status', 'error');
+         json.AddPair('message', 'Employee not found');
+      end;
+
+    end;
+  end;
+
+  Response.ContentType := 'application/json';
+  Response.Content := json.ToString;
+
+end;
+
+// Create Customer
+procedure TWebModule1.WebModule1CreateEmployeeAction(Sender: TObject;
+  Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+
+var
+  req: string;
+  jsVl: TJSONValue;
+  emp: TEmployee;
+  id,age: Integer;
+  name: String;
+  salary: Double;
+
+begin
+
+  jsVl := TJSONObject.ParseJSONValue(Request.Content);
+  ShowMessage(jsVl.ToString);
+  name := jsVl.GetValue<String>('name');
+  salary := jsVl.GetValue<Double>('salary');
+  age := jsVl.GetValue<Integer>('age');
+
+  ShowMessage(name + ' '  + salary.ToString + ' ' + age.ToString);
+
+
+
+end;
+
+// GetParameters
+function TWebModule1.GetParameters(actionPath: string; fullPath: string): String;
+var
+  segment: string;
+
+begin
+
+  segment := fullPath;
+  actionPath := actionPath.Replace('*','');
+  segment := segment.Replace(actionPath, '');
+  segment := segment.Replace('/','');
+
+  Result := segment;
+
+end;
+
+end.

@@ -1,0 +1,22 @@
+object WebModule1: TWebModule1
+  OldCreateOrder = False
+  Actions = <
+    item
+      Default = True
+      Name = 'DefaultHandler'
+      PathInfo = '/'
+      OnAction = WebModule1DefaultHandlerAction
+    end
+    item
+      Name = 'AllEmployeesAction'
+      PathInfo = '/employees'
+      OnAction = WebModule1EmployeesActionAction
+    end
+    item
+      Name = 'anEmployee'
+      PathInfo = '/emloyee/'
+      OnAction = WebModule1anEmployeeAction
+    end>
+  Height = 329
+  Width = 547
+end
