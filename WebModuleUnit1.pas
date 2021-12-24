@@ -4,7 +4,7 @@ interface
 
 uses
   System.SysUtils, System.Classes, Web.HTTPApp, Data.DB, Data.Win.ADODB, dbModule, System.Types, clsEmployee,
-  System.Generics.Collections, System.JSON, Rest.Json,Vcl.Dialogs;
+  System.Generics.Collections, System.JSON, Rest.Json,Vcl.Dialogs, Variants;
 
 type
   TWebModule1 = class(TWebModule)
@@ -17,6 +17,10 @@ type
     procedure WebModule1CreateAnEmployeeAction(Sender: TObject;
       Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
     procedure WebModule1DeleteAnEmployeeAction(Sender: TObject;
+      Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+    procedure WebModule1CheckForUpdateAnEmployeeAction(Sender: TObject;
+      Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+    procedure WebModule1UpdateAnEmployeeAction(Sender: TObject;
       Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
 
   private
@@ -221,6 +225,7 @@ begin
 
 end;
 
+
 (*------------------------------------------------------------------------------*)
 
 // Create Employee
@@ -324,6 +329,173 @@ begin
 
   FreeAndNil(paramList);
   FreeAndNil(emp);
+end;
+
+(*------------------------------------------------------------------------------*)
+
+// Check to update an Employee
+procedure TWebModule1.WebModule1CheckForUpdateAnEmployeeAction(Sender: TObject;
+  Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+var
+  idStr: String;
+  empId: Integer;
+  emp: TEmployee;
+  resp: TJSONObject;
+  jsData: TJSONObject;
+
+begin
+
+  idStr := GetParameters((Sender as TWebActionitem).PathInfo, Request.PathInfo);
+  empId := StrToInt(idStr);
+
+  with DataModule1 do
+  begin
+
+    try
+
+      empDs.Close;
+      empDs.CommandText := 'select * from EMPLOYEE where ID = :id';
+      empDs.Parameters.ParamByName('id').Value := empId;
+      empDs.Open;
+
+      empDs.First;
+
+      resp := TJSONObject.Create;
+
+      if not VarIsNull(empDs['ID']) then
+      begin
+
+        emp:= TEmployee.Create();
+
+        emp.SetId(empDs['ID']);
+        emp.SetName(empDs['NAME']);
+        emp.SetSalary(empDs['SALARY']);
+        emp.SetAge(empDs['AGE']);
+
+
+        resp.AddPair('status','success');
+
+        jsData := TJSONObject.Create;
+        jsData.AddPair('id', emp.GetId.ToString);
+        jsData.AddPair('name', emp.GetName);
+        jsData.AddPair('salary', emp.GetSalary.ToString);
+        jsData.AddPair('age', emp.GetAge.ToString);
+
+        resp.AddPair('data', jsData);
+        resp.AddPair('message', 'Employee has been found');
+
+        FreeAndNil(emp);
+      end
+      else
+      begin
+
+        resp.AddPair('status', 'not found');
+        resp.AddPair('message', 'Employee not found');
+
+      end;
+
+    except
+
+      resp := TJSONObject.Create;
+      resp.AddPair('message', 'Error. Page not found.');
+
+    end;
+  end;
+
+  Response.Content := resp.ToString;
+
+end;
+
+(*------------------------------------------------------------------------------*)
+
+// Update an Employee
+procedure TWebModule1.WebModule1UpdateAnEmployeeAction(Sender: TObject;
+  Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+var
+  idStr: String;
+  empId: Integer;
+  empData: TStringList;
+  emp: TEmployee;
+  affRows: Integer;
+  resp: TJSONObject;
+  jsData: TJSONObject;
+
+begin
+
+  idStr := GetParameters((Sender as TWebActionItem).PathInfo, Request.Pathinfo);
+  empId := StrToInt(idStr);
+
+  empData := GetRequestParameters(Request.Content);
+
+  emp := TEmployee.Create;
+  emp.SetId(empId);
+  emp.SetName(empData[0]);
+  emp.SetSalary(empData[1].ToDouble);
+  emp.SetAge(empData[2].ToInteger);
+
+  with DataModule1 do
+  begin
+
+    try
+
+      empQr.Close;
+      empQr.SQL.Clear;
+      empQr.SQL.Add('update EMPLOYEE set NAME = :name, SALARY = :salary, AGE = :age OUTPUT INSERTED.* where ID = :id;');
+      empQr.Parameters.ParamByName('name').Value := emp.GetName;
+      empQr.Parameters.ParamByName('salary').Value := emp.GetSalary;
+      empQr.Parameters.ParamByName('age').Value := emp.GetAge;
+      empQr.Parameters.ParamByName('id').Value := emp.GetId;
+      empQr.Open;
+
+      resp := TJSONObject.Create;
+
+      if not empQr.FieldByName('ID').IsNull then
+      begin
+
+        if not VarIsNull(empQr['ID']) then
+          emp.SetId(empQr['ID']);
+
+        if not VarIsNull(empQr['NAME']) then
+          emp.SetName(empQr['NAME']);
+
+        if not VarIsNull(empQr['SALARY']) then
+          emp.SetSalary(empQr['SALARY']);
+
+        if not VarIsNull(empQr['AGE']) then
+          emp.SetAge(empQr['AGE']);
+
+        resp.AddPair('status', 'success');
+        jsData := TJSONObject.Create;
+        jsData.AddPair('id', emp.GetId.ToString);
+        jsData.AddPair('name', emp.GetName);
+        jsData.AddPair('salary', emp.GetSalary.ToString);
+        jsData.AddPair('age', emp.GetAge.ToString);
+
+        resp.AddPair('data', jsData);
+
+        resp.AddPair('message', 'Employee has been updated');
+
+      end
+      else
+      begin
+
+        resp.AddPair('status', 'not found');
+        resp.AddPair('message', 'Employee not found');
+
+      end;
+
+    except
+
+      resp := TJSONObject.Create;
+      resp.AddPair('message', 'page not found');
+
+    end;
+
+
+  end;
+
+  Response.Content := resp.ToString;
+
 end;
 
 (*------------------------------------------------------------------------------*)

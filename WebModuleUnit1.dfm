@@ -27,6 +27,16 @@ object WebModule1: TWebModule1
       Name = 'DeleteAnEmployee'
       PathInfo = '/delete*'
       OnAction = WebModule1DeleteAnEmployeeAction
+    end
+    item
+      Name = 'CheckForUpdateAnEmployee'
+      PathInfo = '/checkForUpdate*'
+      OnAction = WebModule1CheckForUpdateAnEmployeeAction
+    end
+    item
+      Name = 'UpdateAnEmployee'
+      PathInfo = '/update*'
+      OnAction = WebModule1UpdateAnEmployeeAction
     end>
   Height = 329
   Width = 547
